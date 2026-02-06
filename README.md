@@ -133,4 +133,4 @@ docker compose exec nginx nginx -s reload
 
 ## 许可证
 
-按项目约定使用。
+MIT 
