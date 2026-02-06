@@ -1,0 +1,10 @@
+# 证书与私钥不提交
+certbot/conf/live/
+certbot/conf/archive/
+certbot/conf/keys/
+certbot/conf/renewal/
+certbot/www/*
+!certbot/conf/.gitkeep
+!certbot/www/.gitkeep
+
+.env

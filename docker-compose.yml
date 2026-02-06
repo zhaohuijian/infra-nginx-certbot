@@ -1,0 +1,85 @@
+services:
+  nginx:
+    image: nginx:1.28.2-alpine
+    container_name: nginx-proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro # 主配置
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro # 站点配置
+      - ./certbot/conf:/etc/letsencrypt:ro # 证书配置
+      - ./nginx/ssl/options-ssl-nginx.conf:/etc/letsencrypt/options-ssl-nginx.conf:ro # SSL 选项
+      - ./nginx/ssl/ssl-dhparams.pem:/etc/letsencrypt/ssl-dhparams.pem:ro # DH 参数
+      - ./certbot/www:/var/www/certbot:ro # ACME 验证目录
+      - certbot-reload-trigger:/var/run/certbot-reload:rw # 续期触发器
+      - ${STATIC_SITE_DARE:-/var/www/dare.zhaohuijian.com}:/usr/share/nginx/dare.zhaohuijian.com:ro # 静态站点
+      - ${STATIC_SITE_ENOS:-/var/www/enos.zhaohuijian.com}:/usr/share/nginx/enos.zhaohuijian.com:ro # 静态站点
+
+    # 只保留“检测触发器 -> 校验配置 -> reload”这一条链路
+    command: >
+      /bin/sh -c '
+        set -eu;
+        # 启动前先做一次语法校验，避免带病启动
+        nginx -t;
+        while :; do
+          if [ -f /var/run/certbot-reload/reload.flag ]; then
+            # reload 前校验配置（企业护栏）
+            if nginx -t; then
+              nginx -s reload;
+              rm -f /var/run/certbot-reload/reload.flag;
+            else
+              echo "[nginx] nginx -t failed, skip reload";
+              # 失败时不删除 flag，便于你排障后手动修复再触发
+              sleep 10;
+            fi
+          fi
+          sleep 60;
+        done &
+        nginx -g "daemon off;"
+      '
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    # 可选：保证 certbot 写完文件再启动 nginx（非必须，但更稳）
+    depends_on:
+      certbot:
+        condition: service_started
+
+  certbot:
+    image: certbot/certbot:v5.3.0
+    container_name: certbot
+    restart: always
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt:rw # 证书配置
+      - ./certbot/www:/var/www/certbot:rw # ACME 验证目录
+      - certbot-reload-trigger:/var/run/certbot-reload:rw # 续期触发器
+
+    # 关键点：deploy-hook 仅在“证书真正续期并部署后”执行
+    entrypoint: >
+      /bin/sh -c '
+        set -eu;
+        trap "exit 0" TERM INT;
+        while :; do
+          # 只在证书实际更新时触发（deploy-hook）
+          certbot renew --webroot -w /var/www/certbot --quiet \
+            --deploy-hook "touch /var/run/certbot-reload/reload.flag";
+          sleep 12h & wait $!;
+        done
+      '
+
+    healthcheck:
+      test: ["CMD-SHELL", "certbot certificates >/dev/null 2>&1 || exit 0"]
+      interval: 300s
+      timeout: 10s
+      retries: 2
+      start_period: 30s
+
+volumes:
+  certbot-reload-trigger:
