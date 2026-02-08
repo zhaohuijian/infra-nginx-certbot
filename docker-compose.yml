@@ -14,8 +14,7 @@ services:
       - ./nginx/ssl/ssl-dhparams.pem:/etc/letsencrypt/ssl-dhparams.pem:ro # DH 参数
       - ./certbot/www:/var/www/certbot:ro # ACME 验证目录
       - certbot-reload-trigger:/var/run/certbot-reload:rw # 续期触发器
-      - ${STATIC_SITE_DARE:-/var/www/dare.zhaohuijian.com}:/usr/share/nginx/dare.zhaohuijian.com:ro # 静态站点
-      - ${STATIC_SITE_ENOS:-/var/www/enos.zhaohuijian.com}:/usr/share/nginx/enos.zhaohuijian.com:ro # 静态站点
+      - /var/www/dare.hestudy.com:/usr/share/nginx/dare.hestudy.com:ro # 静态站点
 
     # 只保留“检测触发器 -> 校验配置 -> reload”这一条链路
     command: >
