@@ -10,11 +10,10 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro # 主配置
       - ./nginx/conf.d:/etc/nginx/conf.d:ro # 站点配置
       - ./certbot/conf:/etc/letsencrypt:ro # 证书配置
-      - ./nginx/ssl/options-ssl-nginx.conf:/etc/letsencrypt/options-ssl-nginx.conf:ro # SSL 选项
-      - ./nginx/ssl/ssl-dhparams.pem:/etc/letsencrypt/ssl-dhparams.pem:ro # DH 参数
       - ./certbot/www:/var/www/certbot:ro # ACME 验证目录
+      - ./nginx/ssl:/etc/nginx/ssl-params:ro # SSL 选项与 DH 参数（避免在只读 /etc/letsencrypt 下叠加挂载导致 mount 失败）
       - certbot-reload-trigger:/var/run/certbot-reload:rw # 续期触发器
-      - /var/www/dare.hestudy.com:/usr/share/nginx/dare.hestudy.com:ro # 静态站点
+      - /opt/apps/xray/www:/usr/share/nginx/xray:ro # 静态站点
 
     # 只保留“检测触发器 -> 校验配置 -> reload”这一条链路
     command: >
@@ -38,7 +37,8 @@ services:
         done &
         nginx -g "daemon off;"
       '
-
+    networks:
+      - proxy-internal
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
       interval: 30s
@@ -72,7 +72,8 @@ services:
           sleep 12h & wait $!;
         done
       '
-
+    networks:
+      - proxy-internal
     healthcheck:
       test: ["CMD-SHELL", "certbot certificates >/dev/null 2>&1 || exit 0"]
       interval: 300s
@@ -82,3 +83,6 @@ services:
 
 volumes:
   certbot-reload-trigger:
+networks:
+  proxy-internal:
+    external: true

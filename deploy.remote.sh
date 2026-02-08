@@ -40,11 +40,19 @@ if [[ ! -d "$APP_DIR" ]]; then
   exit 1
 fi
 
+# 先创建 certbot 目录，供 letsencrypt.sh 申请/续期证书时写入 challenge 与证书
+if [[ ! -d "${APP_DIR}/certbot/www" ]] || [[ ! -d "${APP_DIR}/certbot/conf" ]]; then
+  mkdir -p "${APP_DIR}/certbot/www" "${APP_DIR}/certbot/conf"
+  chmod 755 "${APP_DIR}/certbot" "${APP_DIR}/certbot/www" "${APP_DIR}/certbot/conf"
+  log "Ensure certbot dirs exist (certbot/www, certbot/conf)"
+fi
+
 cd "$APP_DIR"
 
 log "Pull images"
 docker compose -f "$COMPOSE_FILE" pull
-if ! docker compose -f "$COMPOSE_FILE" exec nginx nginx -t; then
+# 用 run 在一次性容器内校验配置，不依赖 nginx 已运行（exec 要求容器在跑）
+if ! docker compose -f "$COMPOSE_FILE" run --rm nginx nginx -t; then
   log "Nginx config is invalid"
   exit 1
 fi
