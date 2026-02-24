@@ -6,7 +6,7 @@ set -euo pipefail
 # 用法：deploy [ DIR ]
 #   DIR  部署目录，含 docker-compose.yml；默认 /opt/apps/nginx_certbot
 #
-# 约定：本脚本部署到服务器后安装为 /usr/local/bin/deploy，本地执行 local.deploy.sh 即可自动化部署
+# 约定：本脚本部署到服务器后安装为 /usr/local/lib/deploy/apps/nginx-certbot.sh，执行sudo -n /usr/local/bin/deploy nginx-certbot 即可自动化部署
 
 if [ -f .env ]; then
   export $(grep -v '^#' .env | xargs)
