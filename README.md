@@ -13,7 +13,6 @@
 
 ```
 ├── docker-compose.yml       # 服务定义
-├── .env.example             # 环境变量示例（复制为 .env）
 ├── nginx/
 │   ├── nginx.conf           # 主配置
 │   ├── ssl/                 # Certbot 推荐的 TLS 参数（Git 管理，可脚本从官方拉取）
@@ -36,8 +35,8 @@
 ### 1. 准备环境
 
 ```bash
-cp .env.example .env
-# 按需编辑 .env 中的静态站点路径（若暂无静态站可先保持默认，确保目录存在或见下方“新增站点”）
+# 创建网络
+docker network create proxy-net
 ```
 
 ### 2. 确保 TLS 参数就绪（首次或缺失时从 Certbot 官方下载到 nginx/ssl）
@@ -78,8 +77,8 @@ docker compose exec nginx nginx -s reload
    - 443：`ssl_certificate` / `ssl_certificate_key` 指向 `/etc/letsencrypt/live/你的域名/`，`include` 与 `ssl_dhparam` 同现有站点
 
 2. **若为静态站点**  
-   在 `docker-compose.yml` 的 nginx volumes 中增加挂载，并在 `.env` 中配置对应路径（或使用默认路径并确保主机目录存在）。
-
+   在 `docker-compose.yml` 的 nginx volumes 中增加挂载
+   
 3. **提交并推送**，在服务器上：
    ```bash
    git pull
