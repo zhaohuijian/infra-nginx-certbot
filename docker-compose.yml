@@ -13,7 +13,11 @@ services:
       - ./certbot/www:/var/www/certbot:ro # ACME 验证目录
       - ./nginx/ssl:/etc/nginx/ssl-params:ro # SSL 选项与 DH 参数（避免在只读 /etc/letsencrypt 下叠加挂载导致 mount 失败）
       - certbot-reload-trigger:/var/run/certbot-reload:rw # 续期触发器
+      # xray 静态站点
       - /opt/apps/xray/www:/usr/share/nginx/xray:ro # 静态站点
+      # wordpress 静态站点
+      - www_zhaohuijian_com_html:/var/www/html:ro # 静态站点
+      - /opt/apps/www_zhaohuijian_com/wp-content:/var/www/html/wp-content:ro
 
     # 只保留“检测触发器 -> 校验配置 -> reload”这一条链路
     command: >
@@ -82,7 +86,12 @@ services:
       start_period: 30s
 
 volumes:
+  # 续期触发器
   certbot-reload-trigger:
+  # wordpress 静态站点
+  www_zhaohuijian_com_html:
+    external: true
+    name: www_zhaohuijian_com_html
 networks:
   proxy-internal:
     external: true
