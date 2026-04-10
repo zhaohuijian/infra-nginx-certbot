@@ -1,20 +1,24 @@
-# 将本项目部署到远端服务器：runner checkout 后 rsync 同步到服务器，再 SSH 执行 docker compose
-# 服务器无需能访问 GitHub；证书等持久化数据保留在服务器（不覆盖 certbot/conf、certbot/www）
+# 将本项目部署到远端服务器：runner checkout 后 rsync 同步到服务器，再 SSH 执行远端部署脚本
+# 服务器无需能访问 GitHub；证书等持久化数据保留在服务器（certbot 目录不被覆盖）
 # 需在仓库 Settings → Secrets and variables → Actions 中配置：
 #   SSH_PRIVATE_KEY  - deploy 用户私钥完整内容（含 -----BEGIN/END-----）
-#   DEPLOY_HOST      - 服务器 IP 或域名
-# 可选：DEPLOY_USER（默认 deploy）、DEPLOY_PORT（默认 22）、REPO_PATH（服务器上部署路径）
+# 可选（Settings → Variables）：
+#   DEPLOY_HOST      - 服务器 IP 或域名，默认 127.0.0.1
+#   DEPLOY_USER      - 默认 deploy
+#   DEPLOY_PORT      - 默认 22
+#   DEPLOY_PATH      - 服务器上部署路径，默认 /opt/apps/nginx_certbot
 name: Deploy to server
 
 on:
-  #push:
-  #  branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 env:
+  DEPLOY_HOST: ${{ vars.DEPLOY_HOST || '127.0.0.1' }}
   DEPLOY_USER: ${{ vars.DEPLOY_USER || 'deploy' }}
   DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
-  REPO_PATH: ${{ vars.REPO_PATH || '~/infra-nginx-certbot' }}
+  DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/apps/nginx_certbot' }}
 
 jobs:
   deploy:
@@ -35,40 +39,38 @@ jobs:
           ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
         env:
           DEPLOY_PORT: ${{ env.DEPLOY_PORT }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_HOST: ${{ env.DEPLOY_HOST }}
 
       - name: Rsync to server
         run: |
-          rsync -avz --delete \
+          rsync -avz \
+            --exclude '.git' \
+            --exclude '.DS_Store*' \
+            --exclude '.github*' \
+            --exclude '.env*' \
+            --exclude '.gitignore' \
+            --exclude 'certbot*' \
+            --exclude 'local.deploy.sh' \
+            --exclude 'readme.md' \
             -e "ssh -o StrictHostKeyChecking=accept-new -p $DEPLOY_PORT" \
-            --exclude='.git' \
-            --exclude='certbot/conf' \
-            --exclude='certbot/www' \
-            ./ "$DEPLOY_USER@$DEPLOY_HOST:$REPO_PATH/"
+            ./ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
         env:
           DEPLOY_USER: ${{ env.DEPLOY_USER }}
           DEPLOY_PORT: ${{ env.DEPLOY_PORT }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          REPO_PATH: ${{ env.REPO_PATH }}
+          DEPLOY_HOST: ${{ env.DEPLOY_HOST }}
+          DEPLOY_PATH: ${{ env.DEPLOY_PATH }}
 
-      - name: Prepare and start on server
+      - name: Deploy on server
         run: |
-          ssh -o StrictHostKeyChecking=accept-new -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "set -e
-            cd $REPO_PATH
-            mkdir -p certbot/conf certbot/www
-            if [ ! -f .env ]; then
-              echo '>>> .env 不存在，从 .env.example 复制（请登录服务器补全配置后重启）'
-              cp -n .env.example .env || true
+          ssh -o StrictHostKeyChecking=accept-new -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "set -e
+            echo '🚀 开始远程部署...'
+            if ! sudo -n /usr/local/bin/deploy nginx-certbot; then
+              echo '❌ 部署失败，请查看上方日志（若为容器启动失败，可检查 certbot 目录或磁盘空间）' >&2
+              exit 1
             fi
-            echo '>>> ensure nginx/ssl TLS params'
-            ./scripts/ensure-ssl-params.sh || true
-            echo '>>> docker compose up'
-            docker compose pull
-            docker compose up -d
-            echo '>>> deploy done'
-          "
+            echo '✅ 远程部署脚本执行完成'"
         env:
           DEPLOY_USER: ${{ env.DEPLOY_USER }}
           DEPLOY_PORT: ${{ env.DEPLOY_PORT }}
-          REPO_PATH: ${{ env.REPO_PATH }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_HOST: ${{ env.DEPLOY_HOST }}
