@@ -13,8 +13,8 @@ services:
       - ./certbot/www:/var/www/certbot:ro # ACME 验证目录
       - ./nginx/ssl:/etc/nginx/ssl-params:ro # SSL 选项与 DH 参数（避免在只读 /etc/letsencrypt 下叠加挂载导致 mount 失败）
       - certbot-reload-trigger:/var/run/certbot-reload:rw # 续期触发器
-      # xray 静态站点
-      - /opt/apps/xray/www:/usr/share/nginx/xray:ro # 静态站点
+      # VPN 静态站点
+      - /opt/apps/vpn/html:/usr/share/nginx/html:ro
       # wordpress 静态站点
       - www_zhaohuijian_com_html:/var/www/html:ro # 静态站点
       - /opt/apps/www_zhaohuijian_com/wp-content:/var/www/html/wp-content:ro
