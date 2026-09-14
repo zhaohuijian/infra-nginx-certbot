@@ -1,4 +1,4 @@
-# 智师汇 · Nginx + Certbot 反向代理基础设施
+# Nginx + Certbot 反向代理基础设施
 
 基于 Docker Compose 的 **Nginx 反向代理 + Let's Encrypt 证书自动化**，支持多站点配置与 GitOps 管理。
 
